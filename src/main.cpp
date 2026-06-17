@@ -1,6 +1,5 @@
 #include <Arduino.h>
 #include <U8g2lib.h>
-#include <avr/pgmspace.h>
 
 U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
 
@@ -15,8 +14,6 @@ bool IsBullet = true;
 bool IsAmmo, Hit = false;
 int randomValue;
 int ammoCount = 0;
-int previousRandX = 0;
-int previousRandY = 0;
 int currentRandX = 0;
 int currentRandY = 0;
 bool spawn = true;
@@ -104,8 +101,6 @@ void Reset() {
   IsAmmo = false;
   Hit = false;
   ammoCount = 0;
-  previousRandX = 0;
-  previousRandY = 0;
   currentRandX = 0;
   currentRandY = 0;
   spawn = true;
@@ -131,7 +126,6 @@ void DIE() {
     c = Serial.read();
     Serial.println(c);
   }
-
   Reset();
 }
 
@@ -149,6 +143,7 @@ void loop() {
     if (c == 's' && y < 50) y+=step;
     if (c == 'a' && x > 9) x-=step;
     if (c == 'd' && x < 115) x+=step;
+    if (c == 'r') Reset();
     if (c == 'x' && IsBullet) {
       bullets[limit].Y = y;
       bullets[limit].X = x + 6;
@@ -158,17 +153,7 @@ void loop() {
   }
   u8g2.setColorIndex(1);
   u8g2.clearBuffer();
-  while (i < limit) {
-    if (bullets[i].Y >= -10) bullets[i].DrawBullet();
-    for (unsigned int j = 0; j < sizeof(enemies) / sizeof(enemies[0]); j++) {
-      if ((bullets[i].Y > enemies[j].Y - 5 && bullets[i].Y < enemies[j].Y + 5) && (bullets[i].X > enemies[j].X - 3 && bullets[i].X < enemies[j].X + 15)) {
-        enemies[j].active = false;
-      }
-    }
-    bullets[i].Y -= 4;
-    last = i;
-    i++;
-  }
+  u8g2.drawXBMP(x, y, 16, 8, Player);
   for (unsigned int k = 0; k < sizeof(enemies) / sizeof(enemies[0]); k++) {
     if (enemies[k].active) {
       enemies[k].DrawEnemy();
@@ -184,7 +169,18 @@ void loop() {
       enemies[k].deathorb.DrawDeathOrb();
     }
     if (enemies[k].deathorb.Y >= 70) enemies[k].deathorb.cooldown = random(30);
-    if (enemies[k].active && ((y <= enemies[k].Y + 5 && x >= enemies[k].X - 7 && x <= enemies[k].X + 15) || (y <= enemies[k].deathorb.Y + 4 && y >= enemies[k].deathorb.Y - 4 && x >= enemies[k].deathorb.X - 15 && x <= enemies[k].deathorb.X + 4))) DIE();
+    if (enemies[k].active && ((y <= enemies[k].Y + 5 && y >= enemies[k].Y - 3 && x >= enemies[k].X - 7 && x <= enemies[k].X + 15) || (y <= enemies[k].deathorb.Y + 4 && y >= enemies[k].deathorb.Y - 4 && x >= enemies[k].deathorb.X - 13 && x <= enemies[k].deathorb.X + 2))) DIE();
+  }
+  while (i < limit) {
+    if (bullets[i].Y >= -10) bullets[i].DrawBullet();
+    for (unsigned int j = 0; j < sizeof(enemies) / sizeof(enemies[0]); j++) {
+      if (bullets[i].Y < enemies[j].Y + 8 && bullets[i].Y > enemies[j].Y - 3 && bullets[i].X > enemies[j].X - 3 && bullets[i].X < enemies[j].X + 15) {
+        enemies[j].active = false;
+      }
+    }
+    bullets[i].Y -= 4;
+    last = i;
+    i++;
   }
   allinactive = !enemies[0].active && !enemies[1].active && !enemies[2].active;
   if (allinactive) spawn = true;
@@ -213,12 +209,13 @@ void loop() {
   if (spawn) spawntimer++;
   if (spawntimer > 50) {
     for (unsigned int c = 0; c < sizeof(enemies) / sizeof(enemies[0]); c++) {
-    do {
-    currentRandX = random(100) + 10; 
-    currentRandY = random(20) + 5;
-    } while (currentRandX >= previousRandX - 15 && currentRandX <= previousRandX + 15 && currentRandY >= previousRandY - 10 && currentRandY <= previousRandY + 10);
-      previousRandX = currentRandX;
-      previousRandY = currentRandY;
+      do {
+        currentRandX = random(100) + 10;
+        currentRandY = random(20) + 5;
+      } while (
+        (currentRandX >= enemies[c - 1].X - 15 && currentRandX <= enemies[c - 1].X + 15 && currentRandY >= enemies[c - 1].Y - 10 && currentRandY <= enemies[c - 1].Y + 10) ||
+        (currentRandX >= enemies[c - 2].X - 15 && currentRandX <= enemies[c - 2].X + 15 && currentRandY >= enemies[c - 2].Y - 10 && currentRandY <= enemies[c - 2].Y + 10)
+      );
 
       enemies[c].X = currentRandX;
       enemies[c].Y = currentRandY;
@@ -227,7 +224,6 @@ void loop() {
   spawn = false;
   spawntimer = 0;
   }
-  u8g2.drawXBMP(x, y, 16, 8, Player);
   u8g2.sendBuffer();
   // if (millis() - t > 1000) {
   //   t = millis();
