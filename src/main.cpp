@@ -19,6 +19,8 @@ int currentRandY = 0;
 bool spawn = true;
 bool allinactive = false;
 int spawntimer = 0;
+int points = 0;
+bool hit = false;
 char c;
 // static unsigned long t = 0;
 
@@ -106,6 +108,7 @@ void Reset() {
   spawn = true;
   allinactive = false;
   spawntimer = 0;
+  points = 0;
   for (unsigned int l = 0; l < sizeof(bullets) / sizeof(bullets[0]); l++) {
     bullets[l].X = 150;
     bullets[l].Y = 100;
@@ -121,7 +124,7 @@ void DIE() {
     u8g2.setColorIndex(1);
     u8g2.clearBuffer();
     u8g2.setFont(u8g2_font_helvB08_tr); //u8g2_font_ncenB08_tr
-    u8g2.drawStr(35, 35, "GAME OVER");
+    u8g2.drawStr(32, 35, "GAME OVER");
     u8g2.sendBuffer();
     c = Serial.read();
     Serial.println(c);
@@ -154,6 +157,24 @@ void loop() {
   u8g2.setColorIndex(1);
   u8g2.clearBuffer();
   u8g2.drawXBMP(x, y, 16, 8, Player);
+  if (spawn) spawntimer++;
+  if (spawntimer > 50) {
+    for (unsigned int c = 0; c < sizeof(enemies) / sizeof(enemies[0]); c++) {
+      do {
+        currentRandX = random(100) + 10;
+        currentRandY = random(15) + 10;
+      } while (
+        (currentRandX >= enemies[c - 1].X - 16 && currentRandX <= enemies[c - 1].X + 16 && currentRandY >= enemies[c - 1].Y - 8 && currentRandY <= enemies[c - 1].Y + 8) ||
+        (currentRandX >= enemies[c - 2].X - 16 && currentRandX <= enemies[c - 2].X + 16 && currentRandY >= enemies[c - 2].Y - 8 && currentRandY <= enemies[c - 2].Y + 8)
+      );
+
+      enemies[c].X = currentRandX;
+      enemies[c].Y = currentRandY;
+      enemies[c].active = true;
+  }
+  spawn = false;
+  spawntimer = 0;
+  }
   for (unsigned int k = 0; k < sizeof(enemies) / sizeof(enemies[0]); k++) {
     if (enemies[k].active) {
       enemies[k].DrawEnemy();
@@ -169,18 +190,23 @@ void loop() {
       enemies[k].deathorb.DrawDeathOrb();
     }
     if (enemies[k].deathorb.Y >= 70) enemies[k].deathorb.cooldown = random(30);
-    if (enemies[k].active && ((y <= enemies[k].Y + 5 && y >= enemies[k].Y - 3 && x >= enemies[k].X - 7 && x <= enemies[k].X + 15) || (y <= enemies[k].deathorb.Y + 4 && y >= enemies[k].deathorb.Y - 4 && x >= enemies[k].deathorb.X - 13 && x <= enemies[k].deathorb.X + 2))) DIE();
+    if (enemies[k].active && ((y <= enemies[k].Y + 5 && x >= enemies[k].X - 7 && x <= enemies[k].X + 15) || (y <= enemies[k].deathorb.Y + 4 && y >= enemies[k].deathorb.Y - 4 && x >= enemies[k].deathorb.X - 13 && x <= enemies[k].deathorb.X + 2))) DIE();
   }
   while (i < limit) {
-    if (bullets[i].Y >= -10) bullets[i].DrawBullet();
+    if (bullets[i].Y >= 5) bullets[i].DrawBullet();
     for (unsigned int j = 0; j < sizeof(enemies) / sizeof(enemies[0]); j++) {
-      if (bullets[i].Y < enemies[j].Y + 8 && bullets[i].Y > enemies[j].Y - 3 && bullets[i].X > enemies[j].X - 3 && bullets[i].X < enemies[j].X + 15) {
+      if (bullets[i].Y < enemies[j].Y + 8 && bullets[i].Y > enemies[j].Y - 3 && bullets[i].X > enemies[j].X - 3 && bullets[i].X < enemies[j].X + 15 && enemies[j].active) {
         enemies[j].active = false;
+        hit = true;
       }
     }
     bullets[i].Y -= 4;
     last = i;
     i++;
+  }
+  if (hit) {
+    points++;
+    hit = false;
   }
   allinactive = !enemies[0].active && !enemies[1].active && !enemies[2].active;
   if (allinactive) spawn = true;
@@ -206,24 +232,9 @@ void loop() {
     limit = 0;
     ammoCount = 0;
   }
-  if (spawn) spawntimer++;
-  if (spawntimer > 50) {
-    for (unsigned int c = 0; c < sizeof(enemies) / sizeof(enemies[0]); c++) {
-      do {
-        currentRandX = random(100) + 10;
-        currentRandY = random(20) + 5;
-      } while (
-        (currentRandX >= enemies[c - 1].X - 15 && currentRandX <= enemies[c - 1].X + 15 && currentRandY >= enemies[c - 1].Y - 10 && currentRandY <= enemies[c - 1].Y + 10) ||
-        (currentRandX >= enemies[c - 2].X - 15 && currentRandX <= enemies[c - 2].X + 15 && currentRandY >= enemies[c - 2].Y - 10 && currentRandY <= enemies[c - 2].Y + 10)
-      );
-
-      enemies[c].X = currentRandX;
-      enemies[c].Y = currentRandY;
-      enemies[c].active = true;
-  }
-  spawn = false;
-  spawntimer = 0;
-  }
+  u8g2.setFont(u8g2_font_5x7_tf);
+  String pointsStr = "Points: " + String(points);
+  u8g2.drawStr(42, 7, pointsStr.c_str());
   u8g2.sendBuffer();
   // if (millis() - t > 1000) {
   //   t = millis();
