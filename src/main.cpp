@@ -168,8 +168,6 @@ void loop() {
     bullets[i].Y -= 4;
     last = i;
     i++;
-
-    int heloo;
   }
   for (unsigned int k = 0; k < sizeof(enemies) / sizeof(enemies[0]); k++) {
     if (enemies[k].active) {
