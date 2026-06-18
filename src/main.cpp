@@ -3,11 +3,11 @@
 
 U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
 
-int y = 40;
-int x = 59;
-int AY = 10;
-int unsigned i = 0;
-int unsigned limit = 0;
+int PlayerY = 40;
+int PlayerX = 59;
+int AmmoY = 10;
+int unsigned BulletCounter = 0;
+int unsigned Bulletslimit = 0;
 int step = 10;
 int last;
 bool IsBullet = true;
@@ -22,7 +22,7 @@ int spawntimer = 0;
 int points = 0;
 bool hit = false;
 char selected = 'n';
-char c = ' ';
+char myChar = ' ';
 int maxenemies = 1;
 int wavenum = 1;
 
@@ -95,11 +95,11 @@ Enemy enemies[10];
 void Reset() {
   bullets[0].X = 150;
   bullets[0].Y = 100;
-  y = 40;
-  x = 59;
-  AY = 10;
-  i = 0;
-  limit = 0;
+  PlayerY = 40;
+  PlayerX = 59;
+  AmmoY = 10;
+  BulletCounter = 0;
+  Bulletslimit = 0;
   step = 10;
   IsBullet = true;
   IsAmmo = false;
@@ -114,7 +114,7 @@ void Reset() {
   maxenemies = 1;
   wavenum = 1;
   selected = 'n';
-  c = ' ';
+  myChar = ' ';
   for (unsigned int l = 0; l < sizeof(bullets) / sizeof(bullets[0]); l++) {
     bullets[l].X = 150;
     bullets[l].Y = 100;
@@ -127,7 +127,7 @@ void Reset() {
 
 void menu() {
   Reset();
-  while(c != 'c' || selected != 's') {
+  while(myChar != 'c' || selected != 's') {
     u8g2.clearBuffer();
     u8g2.setFont(u8g2_font_ncenB10_tr);
     u8g2.drawStr(36, 15, "SPACE");
@@ -138,34 +138,34 @@ void menu() {
     u8g2.setFont(u8g2_font_4x6_tf);
     u8g2.drawStr(30, 64, "Press c to select");
     if (Serial.available() > 0) {
-      c = Serial.read();
-      Serial.println(c);
+      myChar = Serial.read();
+      Serial.println(myChar);
     }
-    if (c == 'w' || selected == 's') {
+    if (myChar == 'w' || selected == 's') {
       u8g2.drawTriangle(42, 37, 48, 41, 42, 45); 
       selected = 's';
     }
-    if (c == 's' || selected == 'q') {
+    if (myChar == 's' || selected == 'q') {
       u8g2.drawTriangle(42, 47, 48, 51, 42, 55); 
       selected = 'q';
     }
-    if (c == 'c' && selected == 'q') Reset(); 
+    if (myChar == 'c' && selected == 'q') Reset(); 
     u8g2.sendBuffer();
   }
 }
 
 void DIE() {
-  while(c != 'r' && c != 'm') {
+  while(myChar != 'r' && myChar != 'm') {
     u8g2.setColorIndex(1);
     u8g2.clearBuffer();
     u8g2.setFont(u8g2_font_helvB08_tr); //u8g2_font_ncenB08_tr
     u8g2.drawStr(32, 35, "GAME OVER");
     u8g2.sendBuffer();
-    c = Serial.read();
-    Serial.println(c);
+    myChar = Serial.read();
+    Serial.println(myChar);
   }
-  if (c == 'r') Reset();
-  if (c == 'm') menu();
+  if (myChar == 'r') Reset();
+  if (myChar == 'm') menu();
 }
 
 bool IsDifferent() {
@@ -186,23 +186,23 @@ void setup() {
 
 void loop() {
  if (Serial.available() > 0) {
-    c = Serial.read();
-    if (c == 'w' && y > 10) y-=step;
-    if (c == 's' && y < 50) y+=step;
-    if (c == 'a' && x > 9) x-=step;
-    if (c == 'd' && x < 115) x+=step;
-    if (c == 'r') Reset();
-    if (c == 'm') menu();
-    if (c == 'x' && IsBullet) {
-      bullets[limit].Y = y;
-      bullets[limit].X = x + 6;
-      limit++;
+    myChar = Serial.read();
+    if (myChar == 'w' && PlayerY > 10) PlayerY-=step;
+    if (myChar == 's' && PlayerY < 50) PlayerY+=step;
+    if (myChar == 'a' && PlayerX > 9) PlayerX-=step;
+    if (myChar == 'd' && PlayerX < 115) PlayerX+=step;
+    if (myChar == 'r') Reset();
+    if (myChar == 'm') menu();
+    if (myChar == 'x' && IsBullet) {
+      bullets[Bulletslimit].Y = PlayerY;
+      bullets[Bulletslimit].X = PlayerX + 6;
+      Bulletslimit++;
     }
-    Serial.println(c);
+    Serial.println(myChar);
   }
   u8g2.setColorIndex(1);
   u8g2.clearBuffer();
-  u8g2.drawXBMP(x, y, 16, 8, Player);
+  u8g2.drawXBMP(PlayerX, PlayerY, 16, 8, Player);
   if (spawn) spawntimer++;
   if (spawntimer > 50) {
     maxenemies++;
@@ -236,19 +236,19 @@ void loop() {
       enemies[k].deathorb.DrawDeathOrb();
     }
     if (enemies[k].deathorb.Y >= 70) enemies[k].deathorb.cooldown = random(20) + 10;
-    if (enemies[k].active && ((y <= enemies[k].Y + 5 && x >= enemies[k].X - 7 && x <= enemies[k].X + 15) || (y <= enemies[k].deathorb.Y + 4 && y >= enemies[k].deathorb.Y - 4 && x >= enemies[k].deathorb.X - 13 && x <= enemies[k].deathorb.X + 2))) DIE();
+    if (enemies[k].active && ((PlayerY <= enemies[k].Y + 5 && PlayerX >= enemies[k].X - 7 && PlayerX <= enemies[k].X + 15) || (PlayerY <= enemies[k].deathorb.Y + 4 && PlayerY >= enemies[k].deathorb.Y - 4 && PlayerX >= enemies[k].deathorb.X - 13 && PlayerX <= enemies[k].deathorb.X + 2))) DIE();
   }
-  while (i < limit) {
-    if (bullets[i].Y >= 5) bullets[i].DrawBullet();
+  while (BulletCounter < Bulletslimit) {
+    if (bullets[BulletCounter].Y >= 5) bullets[BulletCounter].DrawBullet();
     for (int j = 0; j < maxenemies; j++) {
-      if (bullets[i].Y < enemies[j].Y + 8 && bullets[i].Y > enemies[j].Y - 3 && bullets[i].X > enemies[j].X - 3 && bullets[i].X < enemies[j].X + 15 && enemies[j].active) {
+      if (bullets[BulletCounter].Y < enemies[j].Y + 8 && bullets[BulletCounter].Y > enemies[j].Y - 3 && bullets[BulletCounter].X > enemies[j].X - 3 && bullets[BulletCounter].X < enemies[j].X + 15 && enemies[j].active) {
         enemies[j].active = false;
         hit = true;
       }
     }
-    bullets[i].Y -= 4;
-    last = i;
-    i++;
+    bullets[BulletCounter].Y -= 4;
+    last = BulletCounter;
+    BulletCounter++;
   }
   if (hit) {
     points++;
@@ -267,26 +267,26 @@ void loop() {
     String waveStr = "WAVE:" + String(wavenum);
     u8g2.drawStr(35, 25, waveStr.c_str());
   }
-  i = 0;
-  if (limit >= sizeof(bullets) / sizeof(bullets[0])) IsBullet = false;
+  BulletCounter = 0;
+  if (Bulletslimit >= sizeof(bullets) / sizeof(bullets[0])) IsBullet = false;
   if (!IsBullet) ammoCount++;
   if (ammoCount == 50) {
     IsAmmo = true;
     randomValue = random(100) + 10;
   }
   if (IsAmmo) {
-    u8g2.drawFilledEllipse(randomValue, AY, 5, 5);
-    AY++;
+    u8g2.drawFilledEllipse(randomValue, AmmoY, 5, 5);
+    AmmoY++;
   }
-  if (AY > 80) {
+  if (AmmoY > 80) {
     randomValue = random(100) + 10;
-    AY = 10;
+    AmmoY = 10;
   }
-  if ((y >= AY - 10 && y <= AY + 3) && (x >= randomValue - 15 && x <= randomValue + 3)) {
+  if ((PlayerY >= AmmoY - 10 && PlayerY <= AmmoY + 3) && (PlayerX >= randomValue - 15 && PlayerX <= randomValue + 3)) {
     IsAmmo = false;
     IsBullet = true;
-    AY = 10;
-    limit = 0;
+    AmmoY = 10;
+    Bulletslimit = 0;
     ammoCount = 0;
   }
   u8g2.setFont(u8g2_font_5x7_tf);
