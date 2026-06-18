@@ -113,6 +113,8 @@ void Reset() {
   points = 0;
   maxenemies = 1;
   wavenum = 1;
+  selected = 'n';
+  c = ' ';
   for (unsigned int l = 0; l < sizeof(bullets) / sizeof(bullets[0]); l++) {
     bullets[l].X = 150;
     bullets[l].Y = 100;
@@ -124,6 +126,7 @@ void Reset() {
 }
 
 void menu() {
+  Reset();
   while(c != 'c' || selected != 's') {
     u8g2.clearBuffer();
     u8g2.setFont(u8g2_font_ncenB10_tr);
