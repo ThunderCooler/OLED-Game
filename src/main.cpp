@@ -1,8 +1,9 @@
 #include <Arduino.h>
 #include <U8g2lib.h>
 
-U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
+U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE); // neccessary line to use u8g2
 
+//--Variables--
 int PlayerY = 40;
 int PlayerX = 59;
 int AmmoY = 10;
@@ -26,7 +27,8 @@ char myChar = ' ';
 int maxenemies = 1;
 int wavenum = 1;
 
-const static uint8_t BMEnemy[] PROGMEM = {
+//--Bitmaps--
+const static uint8_t BMEnemy[] PROGMEM = { // bitmap design for enemy, needs to be sliced and swaped in order to work properly
   0b11100000, 0b00000111,
   0b01010000, 0b00001010,
   0b00001100, 0b00110000,
@@ -37,7 +39,7 @@ const static uint8_t BMEnemy[] PROGMEM = {
   0b00001000, 0b00010000 
 };
 
-const static uint8_t Player[] PROGMEM = {
+const static uint8_t Player[] PROGMEM = { // bitmap design for player
   0b10000000, 0b00000001,    
   0b10010000, 0b00001001,   
   0b10010000, 0b00001001,   
@@ -48,6 +50,7 @@ const static uint8_t Player[] PROGMEM = {
   0b01100000, 0b00000110
 };
 
+//--Classes--
 class Bullet {
   public:
     int X;
@@ -92,7 +95,8 @@ class Enemy {
 };
 Enemy enemies[10];
 
-void Reset() {
+//--Functions--
+void Reset() { // reset all values
   bullets[0].X = 150;
   bullets[0].Y = 100;
   PlayerY = 40;
@@ -125,7 +129,7 @@ void Reset() {
   }
 }
 
-void menu() {
+void menu() { // create menu screen
   Reset();
   while(myChar != 'c' || selected != 's') {
     u8g2.clearBuffer();
@@ -154,7 +158,7 @@ void menu() {
   }
 }
 
-void DIE() {
+void DIE() { // Kill Player
   while(myChar != 'r' && myChar != 'm') {
     u8g2.setColorIndex(1);
     u8g2.clearBuffer();
@@ -168,7 +172,7 @@ void DIE() {
   if (myChar == 'm') menu();
 }
 
-bool IsDifferent() {
+bool IsDifferent() { // compare each enemy X and Y cord to ensure they are different
   bool result = true;
   for (int b = 0; b < maxenemies - 1; b++) {
     if (currentRandX >= enemies[b].X - 16 && currentRandX <= enemies[b].X + 16 && currentRandY >= enemies[b].Y - 8 && currentRandY <= enemies[b].Y + 8) result = false;  
@@ -185,7 +189,7 @@ void setup() {
 }
 
 void loop() {
- if (Serial.available() > 0) {
+ if (Serial.available() > 0) { // take Input from user
     myChar = Serial.read();
     if (myChar == 'w' && PlayerY > 10) PlayerY-=step;
     if (myChar == 's' && PlayerY < 50) PlayerY+=step;
@@ -203,7 +207,7 @@ void loop() {
   u8g2.setColorIndex(1);
   u8g2.clearBuffer();
   u8g2.drawXBMP(PlayerX, PlayerY, 16, 8, Player);
-  if (spawn) spawntimer++;
+  if (spawn) spawntimer++; // Give X and Y cords after a constant timer
   if (spawntimer > 50) {
     maxenemies++;
     wavenum++;
@@ -221,7 +225,7 @@ void loop() {
   spawn = false;
   spawntimer = 0;
   }
-  for (int k = 0; k < maxenemies; k++) {
+  for (int k = 0; k < maxenemies; k++) { // Spawn enemies and give the ability to shoot
     if (enemies[k].active) {
       enemies[k].DrawEnemy();
       enemies[k].EnemyMove();
@@ -238,7 +242,7 @@ void loop() {
     if (enemies[k].deathorb.Y >= 70) enemies[k].deathorb.cooldown = random(20) + 10;
     if (enemies[k].active && ((PlayerY <= enemies[k].Y + 5 && PlayerX >= enemies[k].X - 7 && PlayerX <= enemies[k].X + 15) || (PlayerY <= enemies[k].deathorb.Y + 4 && PlayerY >= enemies[k].deathorb.Y - 4 && PlayerX >= enemies[k].deathorb.X - 13 && PlayerX <= enemies[k].deathorb.X + 2))) DIE();
   }
-  while (BulletCounter < Bulletslimit) {
+  while (BulletCounter < Bulletslimit) { // check if enemy is hit
     if (bullets[BulletCounter].Y >= 5) bullets[BulletCounter].DrawBullet();
     for (int j = 0; j < maxenemies; j++) {
       if (bullets[BulletCounter].Y < enemies[j].Y + 8 && bullets[BulletCounter].Y > enemies[j].Y - 3 && bullets[BulletCounter].X > enemies[j].X - 3 && bullets[BulletCounter].X < enemies[j].X + 15 && enemies[j].active) {
@@ -261,7 +265,7 @@ void loop() {
       break;
     }
   }
-  if (allinactive) {
+  if (allinactive) { // tell wave number after enemies are cleared
     spawn = true;
     u8g2.setFont(u8g2_font_courB10_tr);
     String waveStr = "WAVE:" + String(wavenum);
@@ -270,7 +274,7 @@ void loop() {
   BulletCounter = 0;
   if (Bulletslimit >= sizeof(bullets) / sizeof(bullets[0])) IsBullet = false;
   if (!IsBullet) ammoCount++;
-  if (ammoCount == 50) {
+  if (ammoCount == 50) { // spawn player ammo once it runs out
     IsAmmo = true;
     randomValue = random(100) + 10;
   }
@@ -282,7 +286,7 @@ void loop() {
     randomValue = random(100) + 10;
     AmmoY = 10;
   }
-  if ((PlayerY >= AmmoY - 10 && PlayerY <= AmmoY + 3) && (PlayerX >= randomValue - 15 && PlayerX <= randomValue + 3)) {
+  if ((PlayerY >= AmmoY - 10 && PlayerY <= AmmoY + 3) && (PlayerX >= randomValue - 15 && PlayerX <= randomValue + 3)) { // give random X and Y cords to ammo when spawning for the first time and when failed to be collected
     IsAmmo = false;
     IsBullet = true;
     AmmoY = 10;
@@ -290,7 +294,7 @@ void loop() {
     ammoCount = 0;
   }
   u8g2.setFont(u8g2_font_5x7_tf);
-  String pointsStr = "Points: " + String(points);
+  String pointsStr = "Points: " + String(points); // print current points accumulated by the player
   u8g2.drawStr(42, 7, pointsStr.c_str());
   u8g2.sendBuffer();
   delay(50);
