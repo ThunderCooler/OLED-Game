@@ -21,7 +21,8 @@ bool allinactive = false;
 int spawntimer = 0;
 int points = 0;
 bool hit = false;
-char c;
+char selected = 'n';
+char c = ' ';
 // static unsigned long t = 0;
 
 const static uint8_t BMEnemy[] PROGMEM = {
@@ -132,11 +133,40 @@ void DIE() {
   Reset();
 }
 
+void menu() {
+  while(c != 'c' || selected != 's') {
+    u8g2.clearBuffer();
+    u8g2.setFont(u8g2_font_ncenB10_tr);
+    u8g2.drawStr(36, 15, "SPACE");
+    u8g2.drawStr(19, 30, "INVADERS");
+    u8g2.setFont(u8g2_font_5x7_tf);
+    u8g2.drawStr(52, 44, "Start");
+    u8g2.drawStr(52, 54, "Quit");
+    u8g2.setFont(u8g2_font_4x6_tf);
+    u8g2.drawStr(30, 64, "Press c to select");
+    if (Serial.available() > 0) {
+      c = Serial.read();
+      Serial.println(c);
+    }
+    if (c == 'w' && y > 10) {
+      u8g2.drawTriangle(42, 37, 48, 41, 42, 45); 
+      selected = 's';
+    }
+    if (c == 's' && y < 50) {
+      u8g2.drawTriangle(42, 47, 48, 51, 42, 55); 
+      selected = 'q';
+    }
+    if (c == 'c' && selected == 'q') Reset(); 
+    u8g2.sendBuffer();
+  }
+}
+
 void setup() {
   u8g2.begin();
   Serial.begin(9600);
   bullets[0].X = 150;
   bullets[0].Y = 100;
+  menu();
 }
 
 void loop() {
@@ -147,6 +177,7 @@ void loop() {
     if (c == 'a' && x > 9) x-=step;
     if (c == 'd' && x < 115) x+=step;
     if (c == 'r') Reset();
+    if (c == 'm') menu();
     if (c == 'x' && IsBullet) {
       bullets[limit].Y = y;
       bullets[limit].X = x + 6;
