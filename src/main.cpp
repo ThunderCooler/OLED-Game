@@ -12,7 +12,7 @@ int unsigned Bulletslimit = 0;
 int step = 10;
 int last;
 bool IsBullet = true;
-bool IsAmmo, Hit = false;
+bool IsAmmo= false;
 int randomValue;
 int ammoCount = 0;
 int currentRandX = 0;
@@ -26,6 +26,8 @@ char selected = 'n';
 char myChar = ' ';
 int maxenemies = 1;
 int wavenum = 1;
+bool finale = false;
+int healthbar = 124;
 
 //--Bitmaps--
 const static uint8_t BMEnemy[] PROGMEM = { // bitmap design for enemy, needs to be sliced and swaped in order to work properly
@@ -94,6 +96,10 @@ class Bullet {
     void DrawDeathOrb() {
       u8g2.drawFrame(X, Y, 4, 4);
     }
+
+    void DrawHyperDeathOrb() {
+      u8g2.drawCircle(X, Y, 8);
+    }
 };
 Bullet bullets[5];
 
@@ -102,17 +108,18 @@ class Enemy {
     int X;
     int Y;
     bool active = false;
-    int steps = 5;
+    int steps = 3;
     bool IsRight;
     int stepsCount;
     Bullet deathorb;
+    Bullet Hyperdeathorb[3];
     
     void DrawEnemy() {
       u8g2.drawXBMP(X, Y, 16, 8, BMEnemy);
     }
 
     void EnemyMove() {
-    if(stepsCount <= 0) IsRight = true;
+    if(stepsCount <= -steps) IsRight = true;
     if(stepsCount >= steps) IsRight = false;
     if(IsRight) { 
       stepsCount++;
@@ -125,6 +132,7 @@ class Enemy {
   }
 };
 Enemy enemies[10];
+Enemy Mother;
 
 //--Functions--
 void CheckNDrawByte(uint16_t X, uint16_t Y, const uint8_t* data, int MaxRow, int MaxColumn) { // draws each box for Bitmap image, needed as the library function sucks 
@@ -143,8 +151,6 @@ void CheckNDrawByte(uint16_t X, uint16_t Y, const uint8_t* data, int MaxRow, int
 }
 
 void Reset() { // reset all values
-  bullets[0].X = 150;
-  bullets[0].Y = 100;
   PlayerY = 40;
   PlayerX = 59;
   AmmoY = 10;
@@ -153,7 +159,6 @@ void Reset() { // reset all values
   step = 10;
   IsBullet = true;
   IsAmmo = false;
-  Hit = false;
   ammoCount = 0;
   currentRandX = 0;
   currentRandY = 0;
@@ -161,10 +166,19 @@ void Reset() { // reset all values
   allinactive = false;
   spawntimer = 0;
   points = 0;
-  maxenemies = 1;
-  wavenum = 1;
+  hit = false;
   selected = 'n';
   myChar = ' ';
+  maxenemies = 1;
+  wavenum = 1;
+  finale = false;
+  healthbar = 124;
+  Mother.X = 25;
+  Mother.Y = -30;
+  Mother.steps = 20;
+  Mother.stepsCount = 0;
+  Mother.IsRight = false;
+
   for (unsigned int l = 0; l < sizeof(bullets) / sizeof(bullets[0]); l++) {
     bullets[l].X = 150;
     bullets[l].Y = 100;
@@ -172,6 +186,11 @@ void Reset() { // reset all values
   for (int m = 0; m < maxenemies; m++) {
     enemies[m].active = false;
     enemies[m].deathorb.cooldown = random(20) + 10;
+    enemies[m].IsRight = false;
+    enemies[m].stepsCount = 0;
+  }
+  for (int f = 0; f < 3; f++) {
+    Mother.Hyperdeathorb[f].cooldown = random(20) + 10;
   }
 }
 
@@ -218,22 +237,26 @@ void DIE() { // Kill Player
   if (myChar == 'm') menu();
 }
 
+void WIN() { // Win Game
+  while(myChar != 'r' && myChar != 'm') {
+    u8g2.setColorIndex(1);
+    u8g2.clearBuffer();
+    u8g2.setFont(u8g2_font_helvB10_tr); //u8g2_font_ncenB08_tr
+    u8g2.drawStr(29, 35, "YOU WIN!");
+    u8g2.sendBuffer();
+    myChar = Serial.read();
+    Serial.println(myChar);
+  }
+  if (myChar == 'r') Reset();
+  if (myChar == 'm') menu();
+}
+
 bool IsDifferent() { // compare each enemy X and Y cord to ensure they are different
-  bool result = true;
+  bool result = false;
   for (int b = 0; b < maxenemies - 1; b++) {
-    if (currentRandX >= enemies[b].X - 16 && currentRandX <= enemies[b].X + 16 && currentRandY >= enemies[b].Y - 8 && currentRandY <= enemies[b].Y + 8) result = false;  
+    if (currentRandX >= enemies[b].X - 16 && currentRandX <= enemies[b].X + 16 && currentRandY >= enemies[b].Y - 8 && currentRandY <= enemies[b].Y + 8) result = true;  
   }
   return result;
-}
-
-void VerticalMove(int &y, int a, int b, int speed) {
-  y -= speed;
-  if (y < a) y = b;
-  if (y > b) y = a;
-}
-
-void FINALE() {
-  
 }
 
 void setup() {
@@ -242,6 +265,11 @@ void setup() {
   bullets[0].X = 150;
   bullets[0].Y = 100;
   menu();
+  Mother.X = 25;
+  Mother.Y = -30;
+  Mother.steps = 20;
+  Mother.stepsCount = 0;
+  Mother.IsRight = false;
 }
 
 void loop() {
@@ -250,7 +278,7 @@ void loop() {
     if (myChar == 'w' && PlayerY > 10) PlayerY-=step;
     if (myChar == 's' && PlayerY < 50) PlayerY+=step;
     if (myChar == 'a' && PlayerX > 9) PlayerX-=step;
-    if (myChar == 'd' && PlayerX < 115) PlayerX+=step;
+    if (myChar == 'd' && PlayerX < 100) PlayerX+=step;
     if (myChar == 'r') Reset();
     if (myChar == 'm') menu();
     if (myChar == 'x' && IsBullet) {
@@ -264,14 +292,15 @@ void loop() {
   u8g2.clearBuffer();
   u8g2.drawXBMP(PlayerX, PlayerY, 16, 8, Player);
   if (spawn) spawntimer++; // Give X and Y cords after a constant timer
-  if (spawntimer > 50) {
+  if (spawntimer > 50 && !finale) {
     maxenemies++;
     wavenum++;
+    if (wavenum == 11) finale = true;
     for (int c = 0; c < maxenemies; c++) {
       do {
         currentRandX = random(100) + 10;
         currentRandY = random(15) + 10;
-      } while (!IsDifferent());
+      } while (IsDifferent());
 
       enemies[c].X = currentRandX;
       enemies[c].Y = currentRandY;
@@ -280,6 +309,44 @@ void loop() {
     }
   spawn = false;
   spawntimer = 0;
+  }
+  if(finale) {
+    CheckNDrawByte(Mother.X, Mother.Y, MotherShip, 28, 10);
+    if (Mother.Y < 10) {
+      Mother.Y += 2;
+    }
+    else {
+      u8g2.drawFrame(0, 0, 128, 8);
+      u8g2.drawBox(2, 2, healthbar, 4);
+      Mother.EnemyMove();
+      for (int h = 0; h < 3; h++) {
+        Mother.Hyperdeathorb[h].cooldown--;
+        if (Mother.Hyperdeathorb[h].cooldown > 0) {
+            Mother.Hyperdeathorb[0].X = Mother.X + 10;
+            Mother.Hyperdeathorb[1].X = Mother.X + 40;
+            Mother.Hyperdeathorb[2].X = Mother.X + 75;
+            Mother.Hyperdeathorb[h].Y = Mother.Y + 10;
+        }
+        if (Mother.Hyperdeathorb[h].cooldown <= 0) {
+          Mother.Hyperdeathorb[h].Y += 4;
+          Mother.Hyperdeathorb[h].DrawHyperDeathOrb();
+        }
+        if (Mother.Hyperdeathorb[h].Y >= 70) Mother.Hyperdeathorb[h].cooldown = random(20) + 10;
+        if ((PlayerY <= Mother.Y + 30 && PlayerX >= Mother.X - 15 && PlayerX <= Mother.X + 80) || (PlayerY <= Mother.Hyperdeathorb[h].Y + 6 && PlayerY >= Mother.Hyperdeathorb[h].Y - 6 && PlayerX >= Mother.Hyperdeathorb[h].X - 15 && PlayerX <= Mother.Hyperdeathorb[h].X + 4)) DIE();
+      }
+    }
+    if (healthbar >= 110) for (int d = 0; d < 10; d++) enemies[d].active = false;
+    else if (healthbar > 0) {
+      enemies[0].active = true;
+      enemies[1].active = true;
+      enemies[0].X = 3;
+      enemies[1].X = 110;
+      enemies[0].Y = 10;
+      enemies[1].Y = 10;
+      enemies[0].EnemyMove();
+      enemies[1].EnemyMove();
+    }
+    else WIN();
   }
   for (int k = 0; k < maxenemies; k++) { // Spawn enemies and give the ability to shoot
     if (enemies[k].active) {
@@ -303,17 +370,18 @@ void loop() {
     for (int j = 0; j < maxenemies; j++) {
       if (bullets[BulletCounter].Y < enemies[j].Y + 8 && bullets[BulletCounter].Y > enemies[j].Y - 3 && bullets[BulletCounter].X > enemies[j].X - 3 && bullets[BulletCounter].X < enemies[j].X + 15 && enemies[j].active) {
         enemies[j].active = false;
-        hit = true;
+        // hit = true;
       }
     }
+    if (bullets[BulletCounter].Y < Mother.Y + 25 && bullets[BulletCounter].Y > Mother.Y + 20 && bullets[BulletCounter].X > Mother.X - 3 && bullets[BulletCounter].X < Mother.X + 80) healthbar -= 3;
     bullets[BulletCounter].Y -= 4;
     last = BulletCounter;
     BulletCounter++;
   }
-  if (hit) {
-    points++;
-    hit = false;
-  }
+  // if (hit) {
+  //   points++;
+  //   hit = false;
+  // }
   allinactive = true;
   for (int k = 0; k < maxenemies; k++) {
     if (enemies[k].active) {
@@ -321,11 +389,12 @@ void loop() {
       break;
     }
   }
-  if (allinactive) { // tell wave number after enemies are cleared
+  if (allinactive && !finale) { // tell wave number after enemies are cleared
     spawn = true;
     u8g2.setFont(u8g2_font_courB10_tr);
     String waveStr = "WAVE:" + String(wavenum);
-    u8g2.drawStr(35, 25, waveStr.c_str());
+    if (finale) waveStr = "FINALE WAVE";
+    u8g2.drawStr(35, 20, waveStr.c_str());
   }
   BulletCounter = 0;
   if (Bulletslimit >= sizeof(bullets) / sizeof(bullets[0])) IsBullet = false;
@@ -349,9 +418,9 @@ void loop() {
     Bulletslimit = 0;
     ammoCount = 0;
   }
-  u8g2.setFont(u8g2_font_5x7_tf);
-  String pointsStr = "Points: " + String(points); // print current points accumulated by the player
-  u8g2.drawStr(42, 7, pointsStr.c_str());
+  // u8g2.setFont(u8g2_font_5x7_tf);
+  // String pointsStr = "Points: " + String(points); // print current points accumulated by the player
+  // u8g2.drawStr(42, 7, pointsStr.c_str());
   u8g2.sendBuffer();
   delay(50);
 }
