@@ -7,10 +7,10 @@ U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE); // neccessary l
 int PlayerY = 40;
 int PlayerX = 59;
 int AmmoY = 10;
-int unsigned BulletCounter = 0;
-int unsigned Bulletslimit = 0;
+int BulletCounter = 0;
 int step = 10;
 int last;
+int BulletsShot = 0;
 bool IsBullet = true;
 bool IsAmmo= false;
 int randomValue;
@@ -22,12 +22,21 @@ bool allinactive = false;
 int spawntimer = 0;
 int points = 0;
 bool hit = false;
-char selected = 'n';
-char myChar = ' ';
-int maxenemies = 1;
+char selected = 's';
+char myChar = 'w';
 int wavenum = 1;
 bool finale = false;
 int healthbar = 124;
+int diffIncrement = 1;
+String difficulty = "MEDIUM";
+int currentenemies;
+int Bulletslimit;
+int Enemycooldown;
+int HDOsize;
+int finalwave;
+int ammotimelimit;
+int maxenemies;
+bool IMMUNITY = false;
 
 //--Bitmaps--
 const static uint8_t BMEnemy[] PROGMEM = { // bitmap design for enemy, needs to be sliced and swaped in order to work properly
@@ -88,7 +97,7 @@ class Bullet {
   public:
     int X;
     int Y;
-    int cooldown = random(20) + 10;
+    int cooldown;
 
     void DrawBullet() {
       u8g2.drawBox(X, Y, 4, 4);
@@ -98,10 +107,10 @@ class Bullet {
     }
 
     void DrawHyperDeathOrb() {
-      u8g2.drawCircle(X, Y, 6);
+      u8g2.drawCircle(X, Y, HDOsize);
     }
 };
-Bullet bullets[5];
+Bullet bullets[10];
 
 class Enemy {
   public:
@@ -131,7 +140,7 @@ class Enemy {
     }
   }
 };
-Enemy enemies[10];
+Enemy enemies[12];
 Enemy Mother;
 
 //--Functions--
@@ -151,12 +160,39 @@ void CheckNDrawByte(uint16_t X, uint16_t Y, const uint8_t* data, int MaxRow, int
 }
 
 void Reset() { // reset all values
+  if (difficulty == "EASY") {
+    Enemycooldown = 40;
+    Bulletslimit = 10;
+    HDOsize = 4;
+    currentenemies = 0;
+    maxenemies = 6;
+    finalwave = 8;
+    ammotimelimit = 25;
+  }
+  if (difficulty == "MEDIUM") {
+    Enemycooldown = 30;
+    Bulletslimit = 5;
+    HDOsize = 6;
+    currentenemies = 0;
+    maxenemies = 9;
+    finalwave = 11;
+    ammotimelimit = 50;
+  }
+  if (difficulty == "HARD") {
+    Enemycooldown = 20;
+    Bulletslimit = 3;
+    HDOsize = 8;
+    currentenemies = 1;
+    maxenemies = 12;
+    finalwave = 13;
+    ammotimelimit = 75;
+  }
   PlayerY = 40;
   PlayerX = 59;
   AmmoY = 10;
   BulletCounter = 0;
-  Bulletslimit = 0;
   step = 10;
+  BulletsShot = 0;
   IsBullet = true;
   IsAmmo = false;
   ammoCount = 0;
@@ -167,9 +203,8 @@ void Reset() { // reset all values
   spawntimer = 0;
   points = 0;
   hit = false;
-  selected = 'n';
-  myChar = ' ';
-  maxenemies = 1;
+  selected = 's';
+  myChar = 'w';
   wavenum = 1;
   finale = false;
   healthbar = 124;
@@ -184,27 +219,49 @@ void Reset() { // reset all values
     bullets[l].X = 150;
     bullets[l].Y = 100;
   }
-  for (int m = 0; m < maxenemies; m++) {
+  for (int m = 0; m < currentenemies; m++) {
     enemies[m].active = false;
-    enemies[m].deathorb.cooldown = random(20) + 10;
+    enemies[m].deathorb.cooldown = random(Enemycooldown) + 10;
     enemies[m].IsRight = false;
     enemies[m].stepsCount = 0;
   }
   for (int f = 0; f < 3; f++) {
-    Mother.Hyperdeathorb[f].cooldown = random(20) + 10;
+    Mother.Hyperdeathorb[f].cooldown = random(Enemycooldown) + 10;
+  }
+}
+
+void OptionMenu() {
+  while (myChar != 'm') {
+    u8g2.clearBuffer();
+    u8g2.setFont(u8g2_font_5x8_tf);
+    u8g2.drawStr(15, 25, "DIFFICULTY :");
+    u8g2.drawStr(85, 25, difficulty.c_str());
+    u8g2.setFont(u8g2_font_4x6_tf);
+    u8g2.drawStr(35, 56, "Press m for menu");
+    u8g2.drawStr(5, 64, "Press r to reset while playing");
+    if (diffIncrement != 0) u8g2.drawTriangle(83, 18, 77, 22, 83, 26);
+    if (diffIncrement != 2) u8g2.drawTriangle(116, 18, 122, 22, 116, 26);
+    if (Serial.available() > 0) {
+      myChar = Serial.read();
+      if (myChar == 'd' && diffIncrement < 2) diffIncrement++;
+      if (myChar == 'a' && diffIncrement > 0) diffIncrement--;
+      if (diffIncrement == 0) difficulty = "EASY";
+      if (diffIncrement == 1) difficulty = "MEDIUM";
+      if (diffIncrement == 2) difficulty = "HARD";
+    }
+    u8g2.sendBuffer();
   }
 }
 
 void menu() { // create menu screen
-  Reset();
   while(myChar != 'c' || selected != 's') {
     u8g2.clearBuffer();
     u8g2.setFont(u8g2_font_ncenB10_tr);
     u8g2.drawStr(36, 15, "SPACE");
     u8g2.drawStr(19, 30, "INVADERS");
     u8g2.setFont(u8g2_font_5x7_tf);
-    u8g2.drawStr(52, 44, "Start");
-    u8g2.drawStr(52, 54, "Quit");
+    u8g2.drawStr(52, 45, "Start");
+    u8g2.drawStr(48, 55, "Options");
     u8g2.setFont(u8g2_font_4x6_tf);
     u8g2.drawStr(30, 64, "Press c to select");
     if (Serial.available() > 0) {
@@ -216,26 +273,29 @@ void menu() { // create menu screen
       selected = 's';
     }
     if (myChar == 's' || selected == 'q') {
-      u8g2.drawTriangle(42, 47, 48, 51, 42, 55); 
+      u8g2.drawTriangle(38, 47, 44, 51, 38, 55); 
       selected = 'q';
     }
-    if (myChar == 'c' && selected == 'q') Reset(); 
+    if (myChar == 'c' && selected == 'q') OptionMenu(); 
     u8g2.sendBuffer();
   }
+  Reset();
 }
 
 void DIE() { // Kill Player
-  while(myChar != 'r' && myChar != 'm') {
-    u8g2.setColorIndex(1);
-    u8g2.clearBuffer();
-    u8g2.setFont(u8g2_font_helvB08_tr); //u8g2_font_ncenB08_tr
-    u8g2.drawStr(32, 35, "GAME OVER");
-    u8g2.sendBuffer();
-    myChar = Serial.read();
-    Serial.println(myChar);
+  if(!IMMUNITY) {
+    while(myChar != 'r' && myChar != 'm') {
+      u8g2.setColorIndex(1);
+      u8g2.clearBuffer();
+      u8g2.setFont(u8g2_font_helvB08_tr); //u8g2_font_ncenB08_tr
+      u8g2.drawStr(32, 35, "GAME OVER");
+      u8g2.sendBuffer();
+      myChar = Serial.read();
+      Serial.println(myChar);
+    }
+    if (myChar == 'r') Reset();
+    if (myChar == 'm') menu();
   }
-  if (myChar == 'r') Reset();
-  if (myChar == 'm') menu();
 }
 
 void WIN() { // Win Game
@@ -254,8 +314,8 @@ void WIN() { // Win Game
 
 bool IsDifferent() { // compare each enemy X and Y cord to ensure they are different
   bool result = false;
-  for (int b = 0; b < maxenemies - 1; b++) {
-    if (currentRandX >= enemies[b].X - 16 && currentRandX <= enemies[b].X + 16 && currentRandY >= enemies[b].Y - 8 && currentRandY <= enemies[b].Y + 8) result = true;  
+  for (int b = 0; b < currentenemies - 1; b++) {
+    if (currentRandX >= enemies[b].X - 14 && currentRandX <= enemies[b].X + 14 && currentRandY >= enemies[b].Y - 7 && currentRandY <= enemies[b].Y + 7) result = true;  
   }
   return result;
 }
@@ -263,15 +323,8 @@ bool IsDifferent() { // compare each enemy X and Y cord to ensure they are diffe
 void setup() {
   u8g2.begin();
   Serial.begin(9600);
-  bullets[0].X = 150;
-  bullets[0].Y = 100;
   menu();
-  Mother.X = 25;
-  Mother.Y = -30;
-  Mother.steps = 20;
-  Mother.stepsCount = 0;
-  Mother.IsRight = false;
-  Mother.active = false;
+  Reset();
 }
 
 void loop() {
@@ -284,9 +337,9 @@ void loop() {
     if (myChar == 'r') Reset();
     if (myChar == 'm') menu();
     if (myChar == 'x' && IsBullet) {
-      bullets[Bulletslimit].Y = PlayerY;
-      bullets[Bulletslimit].X = PlayerX + 6;
-      Bulletslimit++;
+      bullets[BulletsShot].Y = PlayerY;
+      bullets[BulletsShot].X = PlayerX + 6;
+      BulletsShot++;
     }
     Serial.println(myChar);
   }
@@ -294,20 +347,20 @@ void loop() {
   u8g2.clearBuffer();
   u8g2.drawXBMP(PlayerX, PlayerY, 16, 8, Player);
   if (spawn) spawntimer++; // Give X and Y cords after a constant timer
-  if (spawntimer > 50 && !finale) {
-    maxenemies++;
+  if (spawntimer > 40 && !finale) {
+    if (currentenemies < maxenemies) currentenemies++;
     wavenum++;
-    if (wavenum == 11) finale = true;
-    for (int c = 0; c < maxenemies; c++) {
+    if (wavenum == finalwave) finale = true;
+    for (int c = 0; c < currentenemies; c++) {
       do {
         currentRandX = random(100) + 10;
-        currentRandY = random(15) + 10;
+        currentRandY = random(20) + 10;
       } while (IsDifferent());
 
       enemies[c].X = currentRandX;
       enemies[c].Y = currentRandY;
       enemies[c].active = true;
-      enemies[c].deathorb.cooldown = random(20) + 10;
+      enemies[c].deathorb.cooldown = random(Enemycooldown) + 10;
     }
   spawn = false;
   spawntimer = 0;
@@ -333,12 +386,12 @@ void loop() {
           Mother.Hyperdeathorb[h].Y += 4;
           Mother.Hyperdeathorb[h].DrawHyperDeathOrb();
         }
-        if (Mother.Hyperdeathorb[h].Y >= 70) Mother.Hyperdeathorb[h].cooldown = random(20) + 10;
+        if (Mother.Hyperdeathorb[h].Y >= 70) Mother.Hyperdeathorb[h].cooldown = random(Enemycooldown) + 10;
         if ((PlayerY <= Mother.Y + 30 && PlayerX >= Mother.X - 15 && PlayerX <= Mother.X + 80) || (PlayerY <= Mother.Hyperdeathorb[h].Y + 6 && PlayerY >= Mother.Hyperdeathorb[h].Y - 6 && PlayerX >= Mother.Hyperdeathorb[h].X - 15 && PlayerX <= Mother.Hyperdeathorb[h].X + 4)) DIE();
       }
     }
     if (healthbar >= 62) for (int d = 0; d < 10; d++) enemies[d].active = false;
-    else if (healthbar > 0) {
+    if (healthbar > 0 && healthbar < 62 && difficulty != "EASY") {
       enemies[0].active = true;
       enemies[1].active = true;
       enemies[0].X = 3;
@@ -348,10 +401,10 @@ void loop() {
       enemies[0].EnemyMove();
       enemies[1].EnemyMove();
     }
-    else WIN();
+    if (healthbar <= 0) WIN();
     CheckNDrawByte(Mother.X, Mother.Y, MotherShip, 28, 10);
   }
-  for (int k = 0; k < maxenemies; k++) { // Spawn enemies and give the ability to shoot
+  for (int k = 0; k < currentenemies; k++) { // Spawn enemies and give the ability to shoot
     if (enemies[k].active) {
       enemies[k].DrawEnemy();
       enemies[k].EnemyMove();
@@ -365,12 +418,12 @@ void loop() {
       enemies[k].deathorb.Y += 4;
       enemies[k].deathorb.DrawDeathOrb();
     }
-    if (enemies[k].deathorb.Y >= 70) enemies[k].deathorb.cooldown = random(20) + 10;
+    if (enemies[k].deathorb.Y >= 70) enemies[k].deathorb.cooldown = random(Enemycooldown) + 10;
     if (enemies[k].active && ((PlayerY <= enemies[k].Y + 5 && PlayerX >= enemies[k].X - 7 && PlayerX <= enemies[k].X + 15) || (PlayerY <= enemies[k].deathorb.Y + 4 && PlayerY >= enemies[k].deathorb.Y - 4 && PlayerX >= enemies[k].deathorb.X - 13 && PlayerX <= enemies[k].deathorb.X + 2))) DIE();
   }
-  while (BulletCounter < Bulletslimit) { // check if enemy is hit
+  while (BulletCounter < BulletsShot) { // check if enemy is hit
     if (bullets[BulletCounter].Y >= 5) bullets[BulletCounter].DrawBullet();
-    for (int j = 0; j < maxenemies; j++) {
+    for (int j = 0; j < currentenemies; j++) {
       if (bullets[BulletCounter].Y < enemies[j].Y + 8 && bullets[BulletCounter].Y > enemies[j].Y - 3 && bullets[BulletCounter].X > enemies[j].X - 3 && bullets[BulletCounter].X < enemies[j].X + 15 && enemies[j].active) {
         enemies[j].active = false;
         // hit = true;
@@ -386,7 +439,7 @@ void loop() {
   //   hit = false;
   // }
   allinactive = true;
-  for (int k = 0; k < maxenemies; k++) {
+  for (int k = 0; k < currentenemies; k++) {
     if (enemies[k].active) {
       allinactive = false;
       break;
@@ -396,16 +449,16 @@ void loop() {
     spawn = true;
     u8g2.setFont(u8g2_font_courB10_tr);
     String waveStr = "WAVE:" + String(wavenum);
-    if (wavenum >= 10) {
+    if (wavenum >= finalwave - 1) {
       waveStr = "FINALE WAVE";
       u8g2.drawStr(15, 20, waveStr.c_str());
     }
     else u8g2.drawStr(35, 20, waveStr.c_str());
   }
   BulletCounter = 0;
-  if (Bulletslimit >= sizeof(bullets) / sizeof(bullets[0])) IsBullet = false;
+  if (BulletsShot >= Bulletslimit) IsBullet = false;
   if (!IsBullet) ammoCount++;
-  if (ammoCount == 50) { // spawn player ammo once it runs out
+  if (ammoCount == ammotimelimit) { // spawn player ammo once it runs out
     IsAmmo = true;
     randomValue = random(100) + 10;
   }
@@ -421,12 +474,12 @@ void loop() {
     IsAmmo = false;
     IsBullet = true;
     AmmoY = 10;
-    Bulletslimit = 0;
+    BulletsShot = 0;
     ammoCount = 0;
   }
   // u8g2.setFont(u8g2_font_5x7_tf);
   // String pointsStr = "Points: " + String(points); // print current points accumulated by the player
   // u8g2.drawStr(42, 7, pointsStr.c_str());
   u8g2.sendBuffer();
-  delay(50);
+  delay(20);
 }
