@@ -13,3 +13,4 @@ Open the project in VS Code and use the PlatformIO extension to select the corre
 License: Unspecified
 # OLED-Game
 I used a 1.3 inch OLED IIC device to display a space shooting game which i coded myself.
+Copyright (c) 2026 Thunder Cooler. All Rights Reserved.
