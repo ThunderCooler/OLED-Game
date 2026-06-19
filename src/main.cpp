@@ -98,7 +98,7 @@ class Bullet {
     }
 
     void DrawHyperDeathOrb() {
-      u8g2.drawCircle(X, Y, 8);
+      u8g2.drawCircle(X, Y, 6);
     }
 };
 Bullet bullets[5];
@@ -178,6 +178,7 @@ void Reset() { // reset all values
   Mother.steps = 20;
   Mother.stepsCount = 0;
   Mother.IsRight = false;
+  Mother.active = false;
 
   for (unsigned int l = 0; l < sizeof(bullets) / sizeof(bullets[0]); l++) {
     bullets[l].X = 150;
@@ -270,6 +271,7 @@ void setup() {
   Mother.steps = 20;
   Mother.stepsCount = 0;
   Mother.IsRight = false;
+  Mother.active = false;
 }
 
 void loop() {
@@ -311,11 +313,11 @@ void loop() {
   spawntimer = 0;
   }
   if(finale) {
-    CheckNDrawByte(Mother.X, Mother.Y, MotherShip, 28, 10);
     if (Mother.Y < 10) {
       Mother.Y += 2;
     }
     else {
+      Mother.active = true;
       u8g2.drawFrame(0, 0, 128, 8);
       u8g2.drawBox(2, 2, healthbar, 4);
       Mother.EnemyMove();
@@ -335,7 +337,7 @@ void loop() {
         if ((PlayerY <= Mother.Y + 30 && PlayerX >= Mother.X - 15 && PlayerX <= Mother.X + 80) || (PlayerY <= Mother.Hyperdeathorb[h].Y + 6 && PlayerY >= Mother.Hyperdeathorb[h].Y - 6 && PlayerX >= Mother.Hyperdeathorb[h].X - 15 && PlayerX <= Mother.Hyperdeathorb[h].X + 4)) DIE();
       }
     }
-    if (healthbar >= 110) for (int d = 0; d < 10; d++) enemies[d].active = false;
+    if (healthbar >= 62) for (int d = 0; d < 10; d++) enemies[d].active = false;
     else if (healthbar > 0) {
       enemies[0].active = true;
       enemies[1].active = true;
@@ -347,6 +349,7 @@ void loop() {
       enemies[1].EnemyMove();
     }
     else WIN();
+    CheckNDrawByte(Mother.X, Mother.Y, MotherShip, 28, 10);
   }
   for (int k = 0; k < maxenemies; k++) { // Spawn enemies and give the ability to shoot
     if (enemies[k].active) {
@@ -373,7 +376,7 @@ void loop() {
         // hit = true;
       }
     }
-    if (bullets[BulletCounter].Y < Mother.Y + 25 && bullets[BulletCounter].Y > Mother.Y + 20 && bullets[BulletCounter].X > Mother.X - 3 && bullets[BulletCounter].X < Mother.X + 80) healthbar -= 3;
+    if (Mother.active && bullets[BulletCounter].Y < Mother.Y + 25 && bullets[BulletCounter].Y > Mother.Y + 20 && bullets[BulletCounter].X > Mother.X - 3 && bullets[BulletCounter].X < Mother.X + 80) healthbar -= 6;
     bullets[BulletCounter].Y -= 4;
     last = BulletCounter;
     BulletCounter++;
@@ -393,8 +396,11 @@ void loop() {
     spawn = true;
     u8g2.setFont(u8g2_font_courB10_tr);
     String waveStr = "WAVE:" + String(wavenum);
-    if (finale) waveStr = "FINALE WAVE";
-    u8g2.drawStr(35, 20, waveStr.c_str());
+    if (wavenum >= 10) {
+      waveStr = "FINALE WAVE";
+      u8g2.drawStr(15, 20, waveStr.c_str());
+    }
+    else u8g2.drawStr(35, 20, waveStr.c_str());
   }
   BulletCounter = 0;
   if (Bulletslimit >= sizeof(bullets) / sizeof(bullets[0])) IsBullet = false;
