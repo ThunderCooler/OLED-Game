@@ -230,7 +230,7 @@ void Reset() { // reset all values
   }
 }
 
-void OptionMenu() {
+void OptionMenu() { // Allows difficulty to be changed
   while (myChar != 'm') {
     u8g2.clearBuffer();
     u8g2.setFont(u8g2_font_5x8_tf);
@@ -328,7 +328,7 @@ void setup() {
 }
 
 void loop() {
- if (Serial.available() > 0) { // take Input from user
+  if (Serial.available() > 0) { // take Input from user
     myChar = Serial.read();
     if (myChar == 'w' && PlayerY > 10) PlayerY-=step;
     if (myChar == 's' && PlayerY < 50) PlayerY+=step;
